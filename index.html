@@ -1,0 +1,615 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Current Issues Question Wheel</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@500;600;700;800&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --navy: #14284b;
+    --navy-deep: #0c1a33;
+    --blue: #2f5597;
+    --gold: #e0a526;
+    --gold-light: #f6e3ab;
+    --cream: #fbf6e8;
+    --ink: #0c1a33;
+    --white: #ffffff;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; margin: 0; }
+  body {
+    font-family: "Montserrat", "Segoe UI", Arial, sans-serif;
+    background: radial-gradient(circle at 50% 40%, var(--navy) 0%, var(--navy-deep) 75%);
+    color: var(--white);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100%;
+    padding: 20px 16px 24px;
+    overflow-x: hidden;
+  }
+  header { text-align: center; margin-bottom: 8px; }
+  h1 {
+    margin: 0;
+    font-size: clamp(1.4rem, 3.4vw, 2.3rem);
+    font-weight: 800;
+    letter-spacing: .01em;
+  }
+  header p {
+    margin: 4px 0 0;
+    font-size: clamp(.85rem, 1.6vw, 1.05rem);
+    color: var(--gold-light);
+    font-weight: 500;
+  }
+
+  .stage {
+    position: relative;
+    width: min(92vw, 74vh, 720px);
+    aspect-ratio: 1;
+    margin: 10px 0 14px;
+  }
+  canvas#wheel {
+    width: 100%;
+    height: 100%;
+    display: block;
+    cursor: pointer;
+    border-radius: 50%;
+    filter: drop-shadow(0 14px 30px rgba(0,0,0,.45));
+  }
+  .pointer {
+    position: absolute;
+    top: -10px;
+    left: 50%;
+    width: 0; height: 0;
+    transform: translateX(-50%);
+    border-left: 20px solid transparent;
+    border-right: 20px solid transparent;
+    border-top: 44px solid var(--gold);
+    filter: drop-shadow(0 3px 3px rgba(0,0,0,.5));
+    z-index: 3;
+    pointer-events: none;
+  }
+  .pointer.tick { animation: tick .12s ease-out; transform-origin: 50% 0; }
+  @keyframes tick {
+    0% { transform: translateX(-50%) rotate(-12deg); }
+    100% { transform: translateX(-50%) rotate(0); }
+  }
+  .hub {
+    position: absolute;
+    top: 50%; left: 50%;
+    width: 21%; aspect-ratio: 1;
+    transform: translate(-50%, -50%);
+    border-radius: 50%;
+    border: 0;
+    background: var(--gold);
+    color: var(--navy-deep);
+    font: 800 clamp(.9rem, 2.6vw, 1.6rem)/1 "Montserrat", sans-serif;
+    box-shadow: 0 0 0 6px var(--navy-deep), 0 6px 16px rgba(0,0,0,.5);
+    cursor: pointer;
+    z-index: 2;
+  }
+  .hub:hover:not(:disabled) { background: #f0b83a; }
+  .hub:disabled { cursor: default; opacity: .9; }
+  .hub:focus-visible, button:focus-visible { outline: 3px solid var(--white); outline-offset: 3px; }
+
+  .controls {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+    justify-content: center;
+  }
+  .btn {
+    font: 700 .95rem "Montserrat", sans-serif;
+    padding: 10px 18px;
+    border-radius: 10px;
+    border: 2px solid var(--gold);
+    background: transparent;
+    color: var(--gold-light);
+    cursor: pointer;
+  }
+  .btn:hover { background: rgba(224,165,38,.15); }
+  .counter { font-size: .9rem; color: var(--gold-light); font-weight: 600; min-width: 160px; text-align: center; }
+
+  /* Question overlay */
+  .overlay {
+    position: fixed; inset: 0;
+    background: rgba(8, 16, 34, .8);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    padding: 16px;
+    z-index: 10;
+  }
+  .overlay.open { display: flex; }
+  .card {
+    background: var(--cream);
+    color: var(--ink);
+    width: min(100%, 880px);
+    max-height: 94vh;
+    overflow-y: auto;
+    border-radius: 20px;
+    border-top: 14px solid var(--gold);
+    padding: clamp(18px, 4vw, 40px);
+    box-shadow: 0 24px 60px rgba(0,0,0,.55);
+    animation: pop .28s ease-out;
+  }
+  @keyframes pop { from { transform: scale(.92); opacity: 0; } to { transform: scale(1); opacity: 1; } }
+  .topic {
+    display: inline-flex; align-items: center; gap: 10px;
+    background: var(--navy); color: var(--white);
+    padding: 8px 18px; border-radius: 999px;
+    font-weight: 700; font-size: clamp(.95rem, 2vw, 1.2rem);
+  }
+  .topic .emoji { font-size: 1.4em; }
+  .question {
+    margin: 22px 0 18px;
+    font-size: clamp(1.5rem, 4.4vw, 2.8rem);
+    line-height: 1.25;
+    font-weight: 800;
+    color: var(--navy);
+  }
+  .followup {
+    font-size: clamp(1rem, 2.2vw, 1.3rem);
+    font-weight: 600;
+    color: var(--blue);
+    margin: 0 0 18px;
+  }
+  .help {
+    display: none;
+    background: var(--white);
+    border: 2px solid var(--gold-light);
+    border-radius: 14px;
+    padding: 14px 18px;
+    margin-bottom: 18px;
+    font-size: clamp(.95rem, 2vw, 1.15rem);
+    line-height: 1.5;
+  }
+  .help.show { display: block; }
+  .help h3 { margin: 0 0 4px; font-size: .95rem; color: var(--blue); font-weight: 700; }
+  .help ul { margin: 0 0 10px; padding-left: 20px; }
+  .help .words { margin: 0; font-weight: 600; color: var(--navy); }
+  .card-actions { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .card .btn {
+    border-color: var(--navy);
+    color: var(--navy);
+    background: transparent;
+  }
+  .card .btn:hover { background: rgba(20,40,75,.08); }
+  .card .btn.primary { background: var(--navy); color: var(--white); }
+  .card .btn.primary:hover { background: var(--blue); }
+  .timer {
+    margin-left: auto;
+    font-weight: 800;
+    font-size: 1.4rem;
+    color: var(--navy);
+    font-variant-numeric: tabular-nums;
+  }
+  .timer.low { color: #b3261e; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .card { animation: none; }
+    .pointer.tick { animation: none; }
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Current Issues: Question Wheel</h1>
+  <p>Spin the wheel. Read the question. Answer with a reason and an example.</p>
+</header>
+
+<div class="stage">
+  <div class="pointer" id="pointer"></div>
+  <canvas id="wheel" aria-label="Question wheel with 12 topics"></canvas>
+  <button class="hub" id="spinHub" aria-label="Spin the wheel">SPIN</button>
+</div>
+
+<div class="controls">
+  <button class="btn" id="muteBtn" aria-pressed="false">Sound on</button>
+  <div class="counter" id="counter"></div>
+  <button class="btn" id="resetBtn">Reset questions</button>
+</div>
+
+<div class="overlay" id="overlay" role="dialog" aria-modal="true" aria-labelledby="qText">
+  <div class="card">
+    <div class="topic"><span class="emoji" id="qEmoji"></span><span id="qTopic"></span></div>
+    <p class="question" id="qText"></p>
+    <p class="followup" id="qFollow">Tell us why. Give one example.</p>
+    <div class="help" id="help">
+      <h3>Sentence starters</h3>
+      <ul>
+        <li>I think … because …</li>
+        <li>In my opinion, …</li>
+        <li>In my country, …</li>
+        <li>For example, …</li>
+      </ul>
+      <h3>Useful words</h3>
+      <p class="words" id="words"></p>
+    </div>
+    <div class="card-actions">
+      <button class="btn" id="helpBtn">Show help</button>
+      <button class="btn" id="readBtn">Read aloud</button>
+      <button class="btn" id="timerBtn">Start 60 s timer</button>
+      <button class="btn primary" id="againBtn">Spin again</button>
+      <span class="timer" id="timer" aria-live="off"></span>
+    </div>
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   EDIT HERE: topics, helpful words, and questions.
+   Keep 12 topics for a balanced wheel (or change SEGMENTS).
+   ============================================================ */
+const TOPICS = [
+  { name: "Technology", emoji: "📱", color: "navy",
+    words: "screen time, app, social media, addicted, update",
+    questions: [
+      "How many hours a day do you use your phone? Is that too much?",
+      "What app can you not live without? Why?",
+      "Is social media good or bad for young people?",
+      "What new technology has changed your life the most?"
+    ]},
+  { name: "Environment", emoji: "🌍", color: "gold",
+    words: "pollution, recycle, plastic, waste, protect",
+    questions: [
+      "What is one thing you do to help the environment?",
+      "Is there a lot of pollution in your hometown? What kind?",
+      "Should plastic bags be banned? Why or why not?",
+      "What is the biggest environmental problem in your country?"
+    ]},
+  { name: "News", emoji: "📰", color: "blue",
+    words: "headline, reporter, fake news, trust, source",
+    questions: [
+      "Where do you get your news? Why do you like that source?",
+      "What is an important news story this week?",
+      "Do you trust the news? Why or why not?",
+      "What news from your country would you like to share with the class?"
+    ]},
+  { name: "Work & Money", emoji: "💼", color: "cream",
+    words: "salary, career, unemployed, save money, afford",
+    questions: [
+      "What job do you want to have in ten years?",
+      "Is a high salary or an enjoyable job more important?",
+      "Should people work four days a week instead of five?",
+      "What is the hardest part of finding a job in a new country?"
+    ]},
+  { name: "City Life", emoji: "🏙️", color: "navy",
+    words: "traffic, rent, noise, public transport, crowded",
+    questions: [
+      "Do you prefer a big city or a small town? Why?",
+      "What is the biggest problem in your city?",
+      "Is public transportation good in your hometown?",
+      "Why is housing so expensive in many cities?"
+    ]},
+  { name: "Education", emoji: "🎓", color: "gold",
+    words: "tuition, degree, online class, homework, exam",
+    questions: [
+      "What is the best way to learn a language?",
+      "Should university be free for everyone? Why or why not?",
+      "Should students use AI to help with homework?",
+      "How is school in your country different from school here?"
+    ]},
+  { name: "Health", emoji: "🏥", color: "blue",
+    words: "exercise, healthy, stress, diet, hospital",
+    questions: [
+      "What do you do to stay healthy?",
+      "Do people sleep enough today? What about you?",
+      "Is fast food a big problem in your country?",
+      "How do you deal with stress?"
+    ]},
+  { name: "Travel & Migration", emoji: "✈️", color: "cream",
+    words: "abroad, immigrant, culture shock, visa, homesick",
+    questions: [
+      "Why did you decide to study in a new country?",
+      "What is the most difficult thing about living abroad?",
+      "Should countries make it easier for people to move and work abroad?",
+      "What do you miss most from home?"
+    ]},
+  { name: "AI", emoji: "🤖", color: "navy",
+    words: "chatbot, replace, jobs, future, helpful",
+    questions: [
+      "Have you used AI tools like chatbots? What did you use them for?",
+      "Will AI take jobs from people? Which jobs?",
+      "Do you think AI is dangerous? Why or why not?",
+      "How can AI help students learn English?"
+    ]},
+  { name: "Prices & Shopping", emoji: "🛒", color: "gold",
+    words: "expensive, cheap, inflation, online shopping, budget",
+    questions: [
+      "Have prices gone up in your country? What is more expensive now?",
+      "Do you prefer shopping online or in stores? Why?",
+      "Do people buy too many things today?",
+      "What is something you always try to buy at a low price?"
+    ]},
+  { name: "Society", emoji: "🗳️", color: "blue",
+    words: "government, vote, young people, leader, rights",
+    questions: [
+      "What is one problem in your country that you want to fix?",
+      "Do young people care about politics?",
+      "Is it important to vote? Why or why not?",
+      "What makes a good leader?"
+    ]},
+  { name: "Culture & Food", emoji: "🍜", color: "cream",
+    words: "tradition, custom, local food, festival, global",
+    questions: [
+      "What is a tradition from your country that you love?",
+      "Is traditional food disappearing because of fast food?",
+      "What can people learn from other cultures?",
+      "What is one thing about your culture that surprises foreigners?"
+    ]}
+];
+
+/* ============================================================ */
+const COLORS = {
+  navy:  { bg: "#14284b", fg: "#ffffff" },
+  gold:  { bg: "#e0a526", fg: "#0c1a33" },
+  blue:  { bg: "#2f5597", fg: "#ffffff" },
+  cream: { bg: "#f6e3ab", fg: "#0c1a33" }
+};
+
+const SEGMENTS = TOPICS.length;
+const SEG_ANGLE = (Math.PI * 2) / SEGMENTS;
+const TOTAL_QUESTIONS = TOPICS.reduce((n, t) => n + t.questions.length, 0);
+
+const canvas = document.getElementById("wheel");
+const ctx = canvas.getContext("2d");
+const pointer = document.getElementById("pointer");
+const spinHub = document.getElementById("spinHub");
+const overlay = document.getElementById("overlay");
+const counter = document.getElementById("counter");
+
+let rotation = 0;          // radians, clockwise
+let spinning = false;
+let used = new Set();      // "topicIndex-questionIndex"
+let muted = false;
+let audioCtx = null;
+
+/* ---------- Drawing ---------- */
+function sizeCanvas() {
+  const dpr = window.devicePixelRatio || 1;
+  const rect = canvas.getBoundingClientRect();
+  canvas.width = Math.round(rect.width * dpr);
+  canvas.height = Math.round(rect.height * dpr);
+  draw();
+}
+
+function draw() {
+  const w = canvas.width, h = canvas.height;
+  const cx = w / 2, cy = h / 2;
+  const R = w / 2 - w * 0.02;
+  ctx.clearRect(0, 0, w, h);
+
+  // outer rim
+  ctx.beginPath();
+  ctx.arc(cx, cy, R + w * 0.012, 0, Math.PI * 2);
+  ctx.fillStyle = "#e0a526";
+  ctx.fill();
+  ctx.beginPath();
+  ctx.arc(cx, cy, R, 0, Math.PI * 2);
+  ctx.fillStyle = "#0c1a33";
+  ctx.fill();
+
+  ctx.save();
+  ctx.translate(cx, cy);
+  ctx.rotate(rotation);
+
+  for (let i = 0; i < SEGMENTS; i++) {
+    const start = i * SEG_ANGLE - Math.PI / 2;
+    const end = start + SEG_ANGLE;
+    const c = COLORS[TOPICS[i].color];
+
+    ctx.beginPath();
+    ctx.moveTo(0, 0);
+    ctx.arc(0, 0, R - w * 0.012, start, end);
+    ctx.closePath();
+    ctx.fillStyle = c.bg;
+    ctx.fill();
+    ctx.lineWidth = w * 0.004;
+    ctx.strokeStyle = "#0c1a33";
+    ctx.stroke();
+
+    // label
+    ctx.save();
+    ctx.rotate(start + SEG_ANGLE / 2);
+    ctx.textAlign = "right";
+    ctx.textBaseline = "middle";
+    ctx.fillStyle = c.fg;
+    const fontPx = Math.round(w * 0.034);
+    ctx.font = `700 ${fontPx}px Montserrat, "Segoe UI", Arial, sans-serif`;
+    ctx.fillText(TOPICS[i].name, R * 0.88, 0);
+    ctx.font = `${Math.round(w * 0.05)}px "Segoe UI Emoji","Apple Color Emoji","Noto Color Emoji",sans-serif`;
+    ctx.textAlign = "center";
+    ctx.fillText(TOPICS[i].emoji, R * 0.28 + w * 0.09, 0);
+    ctx.restore();
+  }
+  ctx.restore();
+}
+
+/* ---------- Sound ---------- */
+function tickSound() {
+  if (muted) return;
+  try {
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    const o = audioCtx.createOscillator();
+    const g = audioCtx.createGain();
+    o.type = "square";
+    o.frequency.value = 900;
+    g.gain.setValueAtTime(0.06, audioCtx.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + 0.05);
+    o.connect(g); g.connect(audioCtx.destination);
+    o.start(); o.stop(audioCtx.currentTime + 0.05);
+  } catch (e) { /* sound is optional */ }
+}
+function winSound() {
+  if (muted) return;
+  try {
+    audioCtx = audioCtx || new (window.AudioContext || window.webkitAudioContext)();
+    [523, 659, 784].forEach((f, i) => {
+      const o = audioCtx.createOscillator();
+      const g = audioCtx.createGain();
+      o.type = "triangle"; o.frequency.value = f;
+      const t = audioCtx.currentTime + i * 0.12;
+      g.gain.setValueAtTime(0.12, t);
+      g.gain.exponentialRampToValueAtTime(0.0001, t + 0.3);
+      o.connect(g); g.connect(audioCtx.destination);
+      o.start(t); o.stop(t + 0.3);
+    });
+  } catch (e) {}
+}
+
+/* ---------- Spinning ---------- */
+function indexAtPointer(rot) {
+  const a = ((-rot % (Math.PI * 2)) + Math.PI * 2) % (Math.PI * 2);
+  return Math.floor(a / SEG_ANGLE) % SEGMENTS;
+}
+
+function spin() {
+  if (spinning) return;
+  spinning = true;
+  spinHub.disabled = true;
+
+  const extraTurns = 5 + Math.random() * 3;
+  const startRot = rotation;
+  const delta = extraTurns * Math.PI * 2 + Math.random() * Math.PI * 2;
+  const duration = 5200;
+  const t0 = performance.now();
+  let lastIdx = indexAtPointer(startRot);
+
+  function frame(now) {
+    const p = Math.min(1, (now - t0) / duration);
+    const eased = 1 - Math.pow(1 - p, 4);
+    rotation = startRot + delta * eased;
+    const idx = indexAtPointer(rotation);
+    if (idx !== lastIdx) {
+      lastIdx = idx;
+      tickSound();
+      pointer.classList.remove("tick");
+      void pointer.offsetWidth;
+      pointer.classList.add("tick");
+    }
+    draw();
+    if (p < 1) {
+      requestAnimationFrame(frame);
+    } else {
+      spinning = false;
+      spinHub.disabled = false;
+      showQuestion(indexAtPointer(rotation));
+    }
+  }
+  requestAnimationFrame(frame);
+}
+
+/* ---------- Questions ---------- */
+function pickQuestion(topicIdx) {
+  const t = TOPICS[topicIdx];
+  let options = t.questions.map((q, i) => i).filter(i => !used.has(topicIdx + "-" + i));
+  if (options.length === 0) {
+    // all questions in this topic used: free this topic again
+    t.questions.forEach((q, i) => used.delete(topicIdx + "-" + i));
+    options = t.questions.map((q, i) => i);
+  }
+  const qi = options[Math.floor(Math.random() * options.length)];
+  used.add(topicIdx + "-" + qi);
+  return t.questions[qi];
+}
+
+let currentQuestion = "";
+function showQuestion(topicIdx) {
+  const t = TOPICS[topicIdx];
+  currentQuestion = pickQuestion(topicIdx);
+  document.getElementById("qEmoji").textContent = t.emoji;
+  document.getElementById("qTopic").textContent = t.name;
+  document.getElementById("qText").textContent = currentQuestion;
+  document.getElementById("words").textContent = t.words;
+  document.getElementById("help").classList.remove("show");
+  document.getElementById("helpBtn").textContent = "Show help";
+  stopTimer();
+  updateCounter();
+  winSound();
+  overlay.classList.add("open");
+  document.getElementById("againBtn").focus();
+}
+
+function closeQuestion() {
+  overlay.classList.remove("open");
+  stopTimer();
+  if ("speechSynthesis" in window) speechSynthesis.cancel();
+}
+
+function updateCounter() {
+  counter.textContent = `Questions used: ${used.size} of ${TOTAL_QUESTIONS}`;
+}
+
+/* ---------- Timer ---------- */
+let timerId = null, timeLeft = 0;
+const timerEl = document.getElementById("timer");
+const timerBtn = document.getElementById("timerBtn");
+function stopTimer() {
+  clearInterval(timerId);
+  timerId = null;
+  timerEl.textContent = "";
+  timerEl.classList.remove("low");
+  timerBtn.textContent = "Start 60 s timer";
+}
+function startTimer() {
+  if (timerId) { stopTimer(); return; }
+  timeLeft = 60;
+  timerBtn.textContent = "Stop timer";
+  const render = () => {
+    timerEl.textContent = `0:${String(timeLeft).padStart(2, "0")}`;
+    timerEl.classList.toggle("low", timeLeft <= 10);
+  };
+  render();
+  timerId = setInterval(() => {
+    timeLeft--;
+    render();
+    if (timeLeft <= 0) { clearInterval(timerId); timerId = null; timerEl.textContent = "Time!"; timerBtn.textContent = "Start 60 s timer"; winSound(); }
+  }, 1000);
+}
+
+/* ---------- Events ---------- */
+spinHub.addEventListener("click", spin);
+canvas.addEventListener("click", spin);
+document.getElementById("againBtn").addEventListener("click", () => { closeQuestion(); setTimeout(spin, 150); });
+document.getElementById("helpBtn").addEventListener("click", (e) => {
+  const help = document.getElementById("help");
+  const show = help.classList.toggle("show");
+  e.currentTarget.textContent = show ? "Hide help" : "Show help";
+});
+document.getElementById("readBtn").addEventListener("click", () => {
+  if (!("speechSynthesis" in window)) return;
+  speechSynthesis.cancel();
+  const u = new SpeechSynthesisUtterance(currentQuestion);
+  u.lang = "en-US";
+  u.rate = 0.85;
+  speechSynthesis.speak(u);
+});
+timerBtn.addEventListener("click", startTimer);
+document.getElementById("muteBtn").addEventListener("click", (e) => {
+  muted = !muted;
+  e.currentTarget.textContent = muted ? "Sound off" : "Sound on";
+  e.currentTarget.setAttribute("aria-pressed", String(muted));
+});
+document.getElementById("resetBtn").addEventListener("click", () => { used.clear(); updateCounter(); });
+overlay.addEventListener("click", (e) => { if (e.target === overlay) closeQuestion(); });
+document.addEventListener("keydown", (e) => {
+  if (e.key === "Escape" && overlay.classList.contains("open")) closeQuestion();
+  if (e.code === "Space" && !overlay.classList.contains("open") && document.activeElement === document.body) {
+    e.preventDefault(); spin();
+  }
+});
+window.addEventListener("resize", sizeCanvas);
+
+// Redraw once fonts are ready so labels use Montserrat
+(document.fonts && document.fonts.ready ? document.fonts.ready : Promise.resolve()).then(sizeCanvas);
+updateCounter();
+sizeCanvas();
+</script>
+</body>
+</html>
